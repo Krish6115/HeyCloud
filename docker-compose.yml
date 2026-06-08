@@ -1,0 +1,50 @@
+##############################################################################
+# HeyCloud - Docker Compose
+# Purpose: Local development orchestration for event producer + frontend
+##############################################################################
+
+version: "3.8"
+
+services:
+  # =========================================================================
+  # Event Producer - Generates simulated e-commerce events
+  # =========================================================================
+  event-producer:
+    build:
+      context: ./services/event-producer
+      dockerfile: Dockerfile
+    container_name: heycloud-producer
+    env_file:
+      - .env
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: on-failure:3
+    networks:
+      - heycloud-network
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # =========================================================================
+  # Frontend Dashboard - React analytics dashboard
+  # =========================================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: heycloud-dashboard
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env
+    networks:
+      - heycloud-network
+    depends_on:
+      - event-producer
+
+networks:
+  heycloud-network:
+    driver: bridge
+    name: heycloud-network
