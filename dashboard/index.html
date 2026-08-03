@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HeyCloud Analytics Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="background-orbs">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+    
+    <div class="dashboard-container">
+        <header>
+            <div class="header-content">
+                <h1>HeyCloud <span>Analytics</span></h1>
+                <p>Real-Time Streaming Metrics Dashboard</p>
+            </div>
+            <div class="api-status">
+                <span class="status-indicator"></span>
+                <span id="api-health">Connecting...</span>
+            </div>
+        </header>
+
+        <div class="kpi-row">
+            <div class="kpi-card glass">
+                <h3>Total Revenue</h3>
+                <div class="value" id="kpi-revenue">$0.00</div>
+                <div class="trend positive">↑ Live</div>
+            </div>
+            <div class="kpi-card glass">
+                <h3>Active Events Processed</h3>
+                <div class="value" id="kpi-events">0</div>
+                <div class="trend positive">↑ Real-time</div>
+            </div>
+        </div>
+
+        <div class="charts-row">
+            <div class="chart-container glass">
+                <h2>Revenue Timeline</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="revenueChart"></canvas>
+                </div>
+            </div>
+            <div class="chart-container glass">
+                <h2>Top Products Score</h2>
+                <div class="canvas-wrapper">
+                    <canvas id="productsChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div class="table-row glass">
+            <h2>Top Products Breakdown</h2>
+            <table id="productsTable">
+                <thead>
+                    <tr>
+                        <th>Product ID</th>
+                        <th>Views</th>
+                        <th>Purchases</th>
+                        <th>Activity Score</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <!-- Populated by JS -->
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
