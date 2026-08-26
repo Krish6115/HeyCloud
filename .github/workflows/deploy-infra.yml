@@ -1,0 +1,54 @@
+# =============================================================================
+# HeyCloud Infrastructure Deployment
+# Runs on: Push to main when infrastructure/ files change
+# =============================================================================
+
+name: Deploy Infrastructure
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/*]
+    paths:
+      - "infrastructure/**"
+
+env:
+  TERRAFORM_VERSION: "1.5.7"
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Terraform Apply
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: infrastructure/terraform
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="../environments/dev.tfvars" -out=tfplan
+        working-directory: infrastructure/terraform
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve tfplan
+        working-directory: infrastructure/terraform

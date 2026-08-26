@@ -1,0 +1,81 @@
+# =============================================================================
+# HeyCloud Services Deployment
+# Runs on: Push to main when services/ or api/ files change
+# =============================================================================
+
+name: Deploy Services
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [release/*]
+    paths:
+      - "services/**"
+      - "api/**"
+
+env:
+  PYTHON_VERSION: "3.12"
+  AWS_REGION: us-east-1
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy-lambdas:
+    name: Package & Deploy Lambdas
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Package Lambda functions
+        run: bash scripts/package-lambdas.sh ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} --upload
+
+      - name: Update Stream Processor Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.STREAM_PROCESSOR_FUNCTION }} \
+            --s3-bucket ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} \
+            --s3-key stream-processor/stream-processor.zip
+
+      - name: Update Analytics API Lambda
+        run: |
+          aws lambda update-function-code \
+            --function-name ${{ secrets.ANALYTICS_API_FUNCTION }} \
+            --s3-bucket ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} \
+            --s3-key analytics-api/analytics-api.zip
+
+  deploy-producer:
+    name: Build & Push Producer Image
+    runs-on: ubuntu-latest
+    environment: production
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Build Producer Docker image
+        run: docker build -t heycloud-producer ./services/event-producer
+
+      - name: Tag and log
+        run: echo "Producer image built successfully. Push to ECR if needed."

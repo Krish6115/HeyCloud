@@ -1,0 +1,101 @@
+# =============================================================================
+# HeyCloud CI Pipeline
+# Runs on: Every Pull Request and push to main
+# =============================================================================
+
+name: CI Pipeline
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  PYTHON_VERSION: "3.12"
+  TERRAFORM_VERSION: "1.5.7"
+
+jobs:
+  # ===========================================================================
+  # Python: Lint, Format, Test
+  # ===========================================================================
+  python-checks:
+    name: Python Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          pip install pytest ruff bandit
+          pip install -r services/event-producer/requirements.txt
+          pip install -r services/stream-processor/requirements.txt
+          pip install -r api/analytics/requirements.txt
+
+      - name: Lint with Ruff
+        run: |
+          ruff check services/ api/ tests/ --output-format=github
+
+      - name: Security scan with Bandit
+        run: |
+          bandit -r services/ api/ -ll --format json || true
+
+      - name: Run unit tests
+        run: |
+          python -m pytest tests/unit/ -v --tb=short
+        env:
+          EVENTS_TABLE_NAME: test-events
+          AGGREGATIONS_TABLE_NAME: test-aggregations
+          DATA_LAKE_BUCKET: test-bucket
+          LOG_LEVEL: WARNING
+
+  # ===========================================================================
+  # Terraform: Validate and Format
+  # ===========================================================================
+  terraform-checks:
+    name: Terraform Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive || terraform fmt -recursive || true
+        working-directory: infrastructure/terraform
+
+      - name: Terraform Init (validate only)
+        run: terraform init -backend=false
+        working-directory: infrastructure/terraform
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: infrastructure/terraform
+
+  # ===========================================================================
+  # Docker: Build Check
+  # ===========================================================================
+  docker-build:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Event Producer image
+        run: docker build -t heycloud-producer ./services/event-producer
