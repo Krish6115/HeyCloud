@@ -12,9 +12,9 @@
 
 resource "aws_sqs_queue" "dlq" {
   name                       = "${var.project_name}-${var.environment}-dlq"
-  message_retention_seconds  = 1209600  # 14 days (maximum)
-  visibility_timeout_seconds = 300      # 5 minutes
-  receive_wait_time_seconds  = 10       # Long polling (cost optimization)
+  message_retention_seconds  = 1209600 # 14 days (maximum)
+  visibility_timeout_seconds = 300     # 5 minutes
+  receive_wait_time_seconds  = 10      # Long polling (cost optimization)
 
   # Server-side encryption
   sqs_managed_sse_enabled = true
@@ -41,11 +41,11 @@ resource "aws_sqs_queue" "dlq" {
 
 resource "aws_sqs_queue" "events" {
   name                       = "${var.project_name}-${var.environment}-events-queue"
-  message_retention_seconds  = 345600   # 4 days
-  visibility_timeout_seconds = 90       # 1.5x Lambda timeout (60s) — AWS best practice
-  receive_wait_time_seconds  = 10       # Long polling (reduces empty receives & cost)
-  max_message_size           = 262144   # 256 KB (max)
-  delay_seconds              = 0        # No delivery delay
+  message_retention_seconds  = 345600 # 4 days
+  visibility_timeout_seconds = 90     # 1.5x Lambda timeout (60s) — AWS best practice
+  receive_wait_time_seconds  = 10     # Long polling (reduces empty receives & cost)
+  max_message_size           = 262144 # 256 KB (max)
+  delay_seconds              = 0      # No delivery delay
 
   # Server-side encryption
   sqs_managed_sse_enabled = true

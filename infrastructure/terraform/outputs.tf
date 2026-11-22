@@ -56,3 +56,13 @@ output "events_queue_url" {
   description = "SQS Events Queue URL"
   value       = module.sqs.events_queue_url
 }
+
+output "stream_processor_function_name" {
+  description = "Name of the stream processor Lambda"
+  value       = module.lambda.stream_processor_function_name
+}
+
+output "analytics_api_function_name" {
+  description = "Name of the analytics API Lambda"
+  value       = module.lambda.analytics_api_function_name
+}

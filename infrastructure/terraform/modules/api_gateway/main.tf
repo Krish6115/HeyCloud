@@ -25,12 +25,70 @@ resource "aws_api_gateway_rest_api" "main" {
 }
 
 # -----------------------------------------------------------------------------
-# /events endpoint - Direct Kinesis integration
+# /events endpoint - Direct SQS integration (replaces Kinesis PutRecord)
 # -----------------------------------------------------------------------------
+# The producer POSTs one JSON event to /events. API Gateway forwards the raw
+# body to SQS SendMessage; the SQS -> Lambda mapping picks it up.
+resource "aws_api_gateway_resource" "events" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  parent_id   = aws_api_gateway_rest_api.main.root_resource_id
+  path_part   = "events"
+}
 
+resource "aws_api_gateway_method" "events_post" {
+  rest_api_id   = aws_api_gateway_rest_api.main.id
+  resource_id   = aws_api_gateway_resource.events.id
+  http_method   = "POST"
+  authorization = "NONE"
+}
 
-# Direct integration with Kinesis PutRecord (no Lambda proxy)
-# CORS preflight for /events
+resource "aws_api_gateway_integration" "events_sqs" {
+  rest_api_id             = aws_api_gateway_rest_api.main.id
+  resource_id             = aws_api_gateway_resource.events.id
+  http_method             = aws_api_gateway_method.events_post.http_method
+  type                    = "AWS"
+  integration_http_method = "POST"
+  credentials             = var.api_gateway_sqs_role_arn
+  uri                     = "arn:aws:apigateway:${var.aws_region}:sqs:path/${var.account_id}/${var.events_queue_name}"
+
+  request_parameters = {
+    "integration.request.header.Content-Type" = "'application/x-www-form-urlencoded'"
+  }
+
+  request_templates = {
+    "application/json" = "Action=SendMessage&MessageBody=$util.urlEncode($input.body)"
+  }
+
+  passthrough_behavior = "NEVER"
+}
+
+resource "aws_api_gateway_method_response" "events_200" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.events.id
+  http_method = aws_api_gateway_method.events_post.http_method
+  status_code = "200"
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin" = true
+  }
+}
+
+resource "aws_api_gateway_integration_response" "events_200" {
+  rest_api_id = aws_api_gateway_rest_api.main.id
+  resource_id = aws_api_gateway_resource.events.id
+  http_method = aws_api_gateway_method.events_post.http_method
+  status_code = aws_api_gateway_method_response.events_200.status_code
+
+  response_parameters = {
+    "method.response.header.Access-Control-Allow-Origin" = "'*'"
+  }
+
+  response_templates = {
+    "application/json" = "{\"status\": \"accepted\"}"
+  }
+
+  depends_on = [aws_api_gateway_integration.events_sqs]
+}
 
 
 # -----------------------------------------------------------------------------
@@ -84,8 +142,17 @@ resource "aws_api_gateway_deployment" "main" {
       aws_api_gateway_resource.analytics_proxy.id,
       aws_api_gateway_method.analytics_any.id,
       aws_api_gateway_integration.analytics_lambda.id,
+      aws_api_gateway_resource.events.id,
+      aws_api_gateway_method.events_post.id,
+      aws_api_gateway_integration.events_sqs.id,
+      aws_api_gateway_integration_response.events_200.id,
     ]))
   }
+
+  depends_on = [
+    aws_api_gateway_integration.analytics_lambda,
+    aws_api_gateway_integration.events_sqs,
+  ]
 
   lifecycle {
     create_before_destroy = true

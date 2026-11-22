@@ -8,9 +8,9 @@ variable "alert_email" {
 }
 
 variable "stream_processor_function_name" { type = string }
-variable "kinesis_stream_name" { 
-  type = string 
-  default=""
+variable "kinesis_stream_name" {
+  type    = string
+  default = ""
 }
 variable "dlq_name" { type = string }
 variable "api_name" { type = string }

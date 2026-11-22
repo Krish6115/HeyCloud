@@ -227,7 +227,8 @@ resource "aws_iam_role_policy" "analytics_api_dynamodb" {
 }
 
 # -----------------------------------------------------------------------------
-# API Gateway Role - Kinesis Integration
+# API Gateway Role - SQS ingestion integration
+# (resource label/name kept from the original Kinesis design to avoid churn)
 # -----------------------------------------------------------------------------
 resource "aws_iam_role" "api_gateway_kinesis" {
   name = "${var.project_name}-${var.environment}-apigw-kinesis-role"
@@ -247,3 +248,19 @@ resource "aws_iam_role" "api_gateway_kinesis" {
 }
 
 
+
+resource "aws_iam_role_policy" "api_gateway_sqs" {
+  name = "${var.project_name}-${var.environment}-apigw-sqs-send"
+  role = aws_iam_role.api_gateway_kinesis.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["sqs:SendMessage"]
+        Resource = var.events_queue_arn
+      }
+    ]
+  })
+}

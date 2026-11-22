@@ -2,14 +2,9 @@ variable "project_name" { type = string }
 variable "environment" { type = string }
 variable "aws_region" { type = string }
 
-variable "kinesis_stream_name" { 
-  type = string 
-  default=""
-}
-variable "api_gateway_kinesis_role_arn" { 
-  type = string 
-  default=""
-}
+variable "account_id" { type = string }
+variable "events_queue_name" { type = string }
+variable "api_gateway_sqs_role_arn" { type = string }
 variable "analytics_api_invoke_arn" { type = string }
 variable "analytics_api_function_name" { type = string }
 

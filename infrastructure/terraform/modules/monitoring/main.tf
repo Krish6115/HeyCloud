@@ -22,6 +22,7 @@ resource "aws_sns_topic" "alerts" {
 }
 
 resource "aws_sns_topic_subscription" "email_alert" {
+  count     = var.alert_email == "" ? 0 : 1
   topic_arn = aws_sns_topic.alerts.arn
   protocol  = "email"
   endpoint  = var.alert_email
@@ -53,9 +54,6 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
     Service = "monitoring"
   }
 }
-
-# Alarm: Kinesis iterator age > 60 seconds (consumer lag)
-
 
 # Alarm: DLQ has messages (processing failures)
 resource "aws_cloudwatch_metric_alarm" "dlq_messages" {
@@ -126,14 +124,14 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title   = "Lambda Invocations & Errors"
+          title = "Lambda Invocations & Errors"
           metrics = [
             ["AWS/Lambda", "Invocations", "FunctionName", var.stream_processor_function_name, { stat = "Sum", period = 60 }],
             ["AWS/Lambda", "Errors", "FunctionName", var.stream_processor_function_name, { stat = "Sum", period = 60, color = "#d62728" }]
           ]
-          view    = "timeSeries"
-          region  = var.aws_region
-          period  = 60
+          view   = "timeSeries"
+          region = var.aws_region
+          period = 60
         }
       },
       {
@@ -143,7 +141,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 12
         height = 6
         properties = {
-          title   = "Lambda Duration (ms)"
+          title = "Lambda Duration (ms)"
           metrics = [
             ["AWS/Lambda", "Duration", "FunctionName", var.stream_processor_function_name, { stat = "p50", period = 60 }],
             ["AWS/Lambda", "Duration", "FunctionName", var.stream_processor_function_name, { stat = "p95", period = 60 }],
@@ -160,7 +158,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 6
         height = 6
         properties = {
-          title   = "DLQ Depth"
+          title = "DLQ Depth"
           metrics = [
             ["AWS/SQS", "ApproximateNumberOfMessagesVisible", "QueueName", var.dlq_name]
           ]
@@ -175,7 +173,7 @@ resource "aws_cloudwatch_dashboard" "main" {
         width  = 6
         height = 6
         properties = {
-          title   = "API Gateway Requests"
+          title = "API Gateway Requests"
           metrics = [
             ["AWS/ApiGateway", "Count", "ApiName", var.api_name, { stat = "Sum", period = 60 }],
             ["AWS/ApiGateway", "5XXError", "ApiName", var.api_name, { stat = "Sum", period = 60, color = "#d62728" }]

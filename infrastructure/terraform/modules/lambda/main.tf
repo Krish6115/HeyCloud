@@ -27,12 +27,12 @@ resource "aws_lambda_function" "stream_processor" {
 
   environment {
     variables = {
-      ENVIRONMENT          = var.environment
-      EVENTS_TABLE_NAME    = var.dynamodb_events_table_name
+      ENVIRONMENT             = var.environment
+      EVENTS_TABLE_NAME       = var.dynamodb_events_table_name
       AGGREGATIONS_TABLE_NAME = var.dynamodb_aggregations_table_name
-      DATA_LAKE_BUCKET     = var.s3_data_lake_bucket_name
-      LOG_LEVEL            = var.environment == "prod" ? "WARNING" : "DEBUG"
-      METRICS_NAMESPACE    = "${var.project_name}/${var.environment}"
+      DATA_LAKE_BUCKET        = var.s3_data_lake_bucket_name
+      LOG_LEVEL               = var.environment == "prod" ? "WARNING" : "DEBUG"
+      METRICS_NAMESPACE       = "${var.project_name}/${var.environment}"
       POWERTOOLS_SERVICE_NAME = "stream-processor"
     }
   }
