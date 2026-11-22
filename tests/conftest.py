@@ -2,7 +2,14 @@
 Test fixtures and shared configuration for all tests.
 """
 
+import os
+
 import pytest
+
+# boto3 clients are created at import time; CI has no ~/.aws config.
+os.environ.setdefault("AWS_DEFAULT_REGION", "us-east-1")
+os.environ.setdefault("AWS_ACCESS_KEY_ID", "testing")
+os.environ.setdefault("AWS_SECRET_ACCESS_KEY", "testing")
 
 
 @pytest.fixture
