@@ -2,7 +2,7 @@
 # HeyCloud - Cloud-Native Real-Time Streaming Analytics Platform
 # =============================================================================
 
-.PHONY: help init plan apply destroy producer-build producer-run frontend-dev \
+.PHONY: help init plan apply destroy producer-build producer-run dashboard \
         test lint clean package-lambdas
 
 # Default target
@@ -54,14 +54,8 @@ docker-down: ## Stop all docker-compose services
 # Frontend
 # =============================================================================
 
-frontend-install: ## Install frontend dependencies
-	cd frontend && npm install
-
-frontend-dev: ## Start frontend dev server
-	cd frontend && npm run dev
-
-frontend-build: ## Build frontend for production
-	cd frontend && npm run build
+dashboard: ## Serve the static dashboard on http://localhost:3000
+	python -m http.server 3000 --directory dashboard
 
 # =============================================================================
 # Testing
@@ -99,17 +93,8 @@ security-scan: ## Run security scans
 # Lambda Packaging
 # =============================================================================
 
-package-lambdas: ## Package Lambda functions for deployment
-	@echo "Packaging stream-processor..."
-	cd services/stream-processor && \
-		pip install -r requirements.txt -t package/ && \
-		cp -r *.py processors/ storage/ models/ utils/ package/ && \
-		cd package && zip -r ../../stream-processor.zip .
-	@echo "Packaging analytics-api..."
-	cd api/analytics && \
-		pip install -r requirements.txt -t package/ && \
-		cp -r *.py queries/ utils/ package/ && \
-		cd package && zip -r ../../analytics-api.zip .
+package-lambdas: ## Package Lambda zips into build/ (add UPLOAD_BUCKET=<bucket> to upload)
+	python scripts/package-lambdas.py $(if $(UPLOAD_BUCKET),--upload $(UPLOAD_BUCKET),)
 
 # =============================================================================
 # Utilities

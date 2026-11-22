@@ -1,35 +1,62 @@
+"""Package the stream-processor and analytics-api Lambdas into build/*.zip.
+
+Usage:
+    python scripts/package-lambdas.py                 # build only
+    python scripts/package-lambdas.py --upload BUCKET # build + upload to S3
+    (BUCKET = `terraform output -raw s3_lambda_artifacts_bucket`)
+"""
+
+import argparse
 import os
 import shutil
 import subprocess
+import sys
 
-build_dir = "build"
-os.makedirs(build_dir, exist_ok=True)
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BUILD = os.path.join(ROOT, "build")
 
-print("Packaging stream-processor...")
-sp_dir = os.path.join(build_dir, "stream-processor")
-os.makedirs(sp_dir, exist_ok=True)
-subprocess.run(["py", "-m", "pip", "install", "-q", "-r", "services/stream-processor/requirements.txt", "-t", sp_dir])
-for item in ["handler.py", "processors", "storage", "models", "utils"]:
-    src = os.path.join("services/stream-processor", item)
-    dst = os.path.join(sp_dir, item)
-    if os.path.isdir(src): shutil.copytree(src, dst, dirs_exist_ok=True)
-    else: shutil.copy2(src, dst)
-shutil.make_archive(os.path.join(build_dir, "stream-processor"), 'zip', sp_dir)
-print("stream-processor.zip created")
+LAMBDAS = {
+    "stream-processor": ("services/stream-processor", ["handler.py", "processors", "storage", "models", "utils"]),
+    "analytics-api": ("api/analytics", ["handler.py", "queries", "utils"]),
+}
 
-print("Packaging analytics-api...")
-aa_dir = os.path.join(build_dir, "analytics-api")
-os.makedirs(aa_dir, exist_ok=True)
-subprocess.run(["py", "-m", "pip", "install", "-q", "-r", "api/analytics/requirements.txt", "-t", aa_dir])
-for item in ["handler.py", "queries", "utils"]:
-    src = os.path.join("api/analytics", item)
-    dst = os.path.join(aa_dir, item)
-    if os.path.isdir(src): shutil.copytree(src, dst, dirs_exist_ok=True)
-    else: shutil.copy2(src, dst)
-shutil.make_archive(os.path.join(build_dir, "analytics-api"), 'zip', aa_dir)
-print("analytics-api.zip created")
 
-print("Uploading to S3...")
-subprocess.run(["aws", "s3", "cp", os.path.join(build_dir, "stream-processor.zip"), "s3://heycloud-dev-lambda-artifacts-696419969711/stream-processor/stream-processor.zip"])
-subprocess.run(["aws", "s3", "cp", os.path.join(build_dir, "analytics-api.zip"), "s3://heycloud-dev-lambda-artifacts-696419969711/analytics-api/analytics-api.zip"])
-print("Done")
+def package(name: str, src_dir: str, items: list) -> str:
+    out = os.path.join(BUILD, name)
+    shutil.rmtree(out, ignore_errors=True)
+    os.makedirs(out)
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-q", "-r",
+         os.path.join(ROOT, src_dir, "requirements.txt"), "-t", out],
+        check=True,
+    )
+    for item in items:
+        src = os.path.join(ROOT, src_dir, item)
+        dst = os.path.join(out, item)
+        if os.path.isdir(src):
+            shutil.copytree(src, dst, dirs_exist_ok=True,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        else:
+            shutil.copy2(src, dst)
+    zip_path = shutil.make_archive(out, "zip", out)
+    print(f"{name}.zip created")
+    return zip_path
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--upload", metavar="BUCKET", help="S3 Lambda artifacts bucket")
+    args = parser.parse_args()
+
+    for name, (src_dir, items) in LAMBDAS.items():
+        zip_path = package(name, src_dir, items)
+        if args.upload:
+            subprocess.run(
+                ["aws", "s3", "cp", zip_path, f"s3://{args.upload}/{name}/{name}.zip"],
+                check=True,
+            )
+    print("Done")
+
+
+if __name__ == "__main__":
+    main()

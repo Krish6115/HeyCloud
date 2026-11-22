@@ -43,7 +43,7 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Package Lambda functions
-        run: bash scripts/package-lambdas.sh ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} --upload
+        run: python scripts/package-lambdas.py --upload ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }}
 
       - name: Update Stream Processor Lambda
         run: |

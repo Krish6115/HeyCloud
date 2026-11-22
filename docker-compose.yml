@@ -3,8 +3,6 @@
 # Purpose: Local development orchestration for event producer + frontend
 ##############################################################################
 
-version: "3.8"
-
 services:
   # =========================================================================
   # Event Producer - Generates simulated e-commerce events
@@ -28,21 +26,17 @@ services:
         max-file: "3"
 
   # =========================================================================
-  # Frontend Dashboard - React analytics dashboard
+  # Dashboard - static HTML/JS dashboard served by nginx
   # =========================================================================
-  frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+  dashboard:
+    image: nginx:1.27-alpine
     container_name: heycloud-dashboard
     ports:
-      - "3000:3000"
-    env_file:
-      - .env
+      - "3000:80"
+    volumes:
+      - ./dashboard:/usr/share/nginx/html:ro
     networks:
       - heycloud-network
-    depends_on:
-      - event-producer
 
 networks:
   heycloud-network:

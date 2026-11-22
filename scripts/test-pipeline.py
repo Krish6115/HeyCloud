@@ -80,7 +80,7 @@ def test_pipeline(api_url: str, api_key: str, count: int):
             print(f"  ✗ GET {endpoint} → {e}")
 
     print("\n" + "=" * 60)
-    print(f"  Pipeline test complete!")
+    print("  Pipeline test complete!")
     print("=" * 60)
 
 
