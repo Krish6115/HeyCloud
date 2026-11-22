@@ -1,5 +1,6 @@
 // Configuration
-const API_BASE_URL = 'https://lqlt6vvduh.execute-api.us-east-1.amazonaws.com/dev/analytics';
+// Set in config.js (written by scripts/deploy.sh) or override with ?api=<url>
+const API_BASE_URL = new URLSearchParams(location.search).get('api') || window.HEYCLOUD_API_URL;
 
 // Chart instances
 let revenueChartInstance = null;
@@ -33,14 +34,10 @@ function updateDashboard(data) {
     const totalRev = data.revenue.total_revenue || 0;
     document.getElementById('kpi-revenue').textContent = `$${totalRev.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
     
-    // Calculate total events processed from top products
-    let totalEvents = 0;
-    if (data.top_products && data.top_products.length > 0) {
-        data.top_products.forEach(p => {
-            totalEvents += (p.views + p.purchases);
-        });
-    }
-    document.getElementById('kpi-events').textContent = totalEvents > 0 ? totalEvents + '+' : '0';
+    // Total events processed today = sum of per-type counters from /trends
+    const totals = (data.trends && data.trends.totals) || {};
+    const totalEvents = Object.values(totals).reduce((sum, n) => sum + Number(n || 0), 0);
+    document.getElementById('kpi-events').textContent = totalEvents.toLocaleString();
 
     // 2. Update Revenue Chart
     if (data.revenue && data.revenue.timeline) {
