@@ -70,7 +70,7 @@ def main():
         print(f"Writing {len(events)} events to DynamoDB table {args.table}...")
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         table = dynamodb.Table(args.table)
-        
+
         with table.batch_writer() as batch:
             for event in events:
                 # Construct PK and SK for the events table
@@ -78,7 +78,7 @@ def main():
                 date_str = dt.strftime('%Y-%m-%d')
                 event['PK'] = f"{event['event_type']}#{date_str}"
                 event['SK'] = f"{event['timestamp']}#{event['event_id']}"
-                
+
                 # Extract attributes for GSI and queries
                 if 'user' in event and 'user_id' in event['user']:
                     event['user_id'] = event['user']['user_id']
@@ -86,7 +86,7 @@ def main():
                     event['product_id'] = event['payload']['product_id']
                 elif 'payload' in event and 'products' in event['payload'] and len(event['payload']['products']) > 0:
                     event['product_id'] = event['payload']['products'][0]['product_id']
-                
+
                 # Convert floats to Decimal for DynamoDB
                 item = json.loads(json.dumps(event), parse_float=decimal.Decimal)
                 batch.put_item(Item=item)
@@ -96,9 +96,9 @@ def main():
         print(f"Writing sample aggregations to DynamoDB table {args.agg_table}...")
         dynamodb = boto3.resource('dynamodb', region_name='us-east-1')
         agg_table = dynamodb.Table(args.agg_table)
-        
+
         date_str = datetime.now(timezone.utc).strftime('%Y-%m-%d')
-        
+
         with agg_table.batch_writer() as batch:
             for i in range(10, 20):
                 # Sample revenue

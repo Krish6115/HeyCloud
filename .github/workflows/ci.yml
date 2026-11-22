@@ -36,7 +36,7 @@ jobs:
       - name: Install dependencies
         run: |
           pip install --upgrade pip
-          pip install pytest ruff bandit
+          pip install pytest ruff==0.15.13 bandit
           pip install -r services/event-producer/requirements.txt
           pip install -r services/stream-processor/requirements.txt
           pip install -r api/analytics/requirements.txt

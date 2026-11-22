@@ -86,12 +86,12 @@ class SQSProducer:
                 QueueUrl=self.queue_url,
                 Entries=entries
             )
-            
+
             failed = response.get("Failed", [])
             if failed:
                 logger.warning(f"Failed to send {len(failed)} messages to SQS", extra={"errors": failed})
                 self.errors += len(failed)
-            
+
             success = response.get("Successful", [])
             if success:
                 self.events_sent += len(success)
@@ -100,9 +100,9 @@ class SQSProducer:
                     f"Sent batch of {len(success)} messages to SQS",
                     extra={"duration_ms": duration_ms}
                 )
-            
+
             return len(failed) == 0
-            
+
         except ClientError as e:
             logger.error(f"SQS send_message_batch failed: {e}", exc_info=True)
             self.errors += len(events)
@@ -117,7 +117,7 @@ class SQSProducer:
         )
 
         batch = []
-        
+
         while self.running:
             try:
                 event_type = _pick_event_type()
@@ -151,7 +151,7 @@ class SQSProducer:
                 logger.error(f"Unexpected error in producer loop: {e}", exc_info=True)
                 self.errors += 1
                 time.sleep(1)
-                
+
         # Flush any remaining messages
         if batch:
             self.send_batch(batch)
