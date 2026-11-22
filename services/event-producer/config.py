@@ -15,7 +15,7 @@ class Config:
     """Centralized configuration loaded from environment variables."""
 
     # API Gateway endpoint
-    API_GATEWAY_URL: str = os.getenv("API_GATEWAY_URL", "https://khqqp05h57.execute-api.us-east-1.amazonaws.com/dev")
+    API_GATEWAY_URL: str = os.getenv("API_GATEWAY_URL", "").rstrip("/")
     API_KEY: str = os.getenv("API_KEY", "")
 
     # Producer tuning

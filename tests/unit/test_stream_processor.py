@@ -152,3 +152,27 @@ class TestProcessedEvent:
             "timestamp": "2026-05-20T12:00:00+00:00",
         })
         assert event.s3_key == "raw/2026/05/20/PURCHASE/e-001.json"
+
+
+class TestSqsRecord:
+    """SQS is the live trigger (API Gateway /events -> SQS -> Lambda)."""
+
+    def test_sqs_record_returns_processed_event(self):
+        event_data = {
+            "event_id": "e-sqs-001",
+            "event_type": "PURCHASE",
+            "timestamp": "2026-05-20T12:00:00+00:00",
+            "source": "test",
+            "version": "1.0",
+            "metadata": {"region": "us-east-1", "platform": "web"},
+            "user": {"user_id": "usr_9", "age_group": "26-35", "membership": "free"},
+            "payload": {"order_id": "o-1", "total_amount": 42.5},
+        }
+        result = transform_record({"body": json.dumps(event_data), "messageId": "m-1"})
+
+        assert result is not None
+        assert result.event_id == "e-sqs-001"
+        assert result.event_type == "PURCHASE"
+
+    def test_sqs_invalid_body_returns_none(self):
+        assert transform_record({"body": "not-json", "messageId": "m-2"}) is None

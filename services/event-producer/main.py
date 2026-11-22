@@ -236,6 +236,12 @@ class EventProducer:
 
 def main():
     """Entry point for the event producer."""
+    if not config.API_GATEWAY_URL:
+        raise SystemExit(
+            "API_GATEWAY_URL is not set. Use `terraform output -raw api_gateway_url` "
+            "(no trailing /events) and put it in .env."
+        )
+
     logger.info("=" * 60)
     logger.info("  HeyCloud Event Producer v1.0")
     logger.info("=" * 60)
