@@ -31,7 +31,7 @@ s3_lifecycle_glacier_days     = 90
 s3_lifecycle_expiration_days  = 365
 
 # Monitoring
-alert_email                   = "ashwakpathem@gmail.com"
+alert_email                   = "" # set your email to receive alarm notifications
 cloudwatch_log_retention_days = 7
 
 # API Gateway

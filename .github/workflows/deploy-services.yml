@@ -1,12 +1,20 @@
 # =============================================================================
 # HeyCloud Services Deployment
-# Runs on: Push to main when services/ or api/ files change
+# Runs on: push to release/* touching services/ or api/, or manual dispatch
+# Reads bucket / function / ECR names from Terraform state, so the only
+# required secret is AWS_ROLE_ARN. Run "Deploy Infrastructure" first.
 # =============================================================================
 
 name: Deploy Services
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [dev, prod]
+        default: dev
   push:
     branches: [release/*]
     paths:
@@ -14,18 +22,24 @@ on:
       - "api/**"
 
 env:
+  TERRAFORM_VERSION: "1.5.7"
   PYTHON_VERSION: "3.12"
   AWS_REGION: us-east-1
+  TF_ENV: ${{ inputs.environment || 'dev' }}
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
 jobs:
-  deploy-lambdas:
-    name: Package & Deploy Lambdas
+  deploy:
+    name: Deploy Lambdas & Producer Image
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout code
@@ -42,40 +56,40 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
-      - name: Package Lambda functions
-        run: python scripts/package-lambdas.py --upload ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }}
-
-      - name: Update Stream Processor Lambda
-        run: |
-          aws lambda update-function-code \
-            --function-name ${{ secrets.STREAM_PROCESSOR_FUNCTION }} \
-            --s3-bucket ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} \
-            --s3-key stream-processor/stream-processor.zip
-
-      - name: Update Analytics API Lambda
-        run: |
-          aws lambda update-function-code \
-            --function-name ${{ secrets.ANALYTICS_API_FUNCTION }} \
-            --s3-bucket ${{ secrets.LAMBDA_ARTIFACTS_BUCKET }} \
-            --s3-key analytics-api/analytics-api.zip
-
-  deploy-producer:
-    name: Build & Push Producer Image
-    runs-on: ubuntu-latest
-    environment: production
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: ${{ env.AWS_REGION }}
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
-      - name: Build Producer Docker image
-        run: docker build -t heycloud-producer ./services/event-producer
+      - name: Read deployment targets from Terraform state
+        working-directory: infrastructure/terraform
+        run: |
+          terraform init -input=false
+          {
+            echo "BUCKET=$(terraform output -raw s3_lambda_artifacts_bucket)"
+            echo "SP_FUNCTION=$(terraform output -raw stream_processor_function_name)"
+            echo "AA_FUNCTION=$(terraform output -raw analytics_api_function_name)"
+            echo "ECR_REPO=$(terraform output -raw producer_ecr_repository_url)"
+          } >> "$GITHUB_ENV"
 
-      - name: Tag and log
-        run: echo "Producer image built successfully. Push to ECR if needed."
+      - name: Package and upload Lambda artifacts
+        run: python scripts/package-lambdas.py --upload "$BUCKET"
+
+      - name: Update Lambda functions
+        run: |
+          aws lambda update-function-code --function-name "$SP_FUNCTION" \
+            --s3-bucket "$BUCKET" --s3-key stream-processor/stream-processor.zip --no-cli-pager
+          aws lambda update-function-code --function-name "$AA_FUNCTION" \
+            --s3-bucket "$BUCKET" --s3-key analytics-api/analytics-api.zip --no-cli-pager
+          aws lambda wait function-updated --function-name "$SP_FUNCTION"
+          aws lambda wait function-updated --function-name "$AA_FUNCTION"
+
+      - name: Log in to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push producer image
+        run: |
+          TAG="${GITHUB_SHA:0:7}"
+          docker build -t "$ECR_REPO:$TAG" -t "$ECR_REPO:latest" ./services/event-producer
+          docker push --all-tags "$ECR_REPO"

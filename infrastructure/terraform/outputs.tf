@@ -66,3 +66,8 @@ output "analytics_api_function_name" {
   description = "Name of the analytics API Lambda"
   value       = module.lambda.analytics_api_function_name
 }
+
+output "producer_ecr_repository_url" {
+  description = "ECR repository for the event producer image"
+  value       = aws_ecr_repository.producer.repository_url
+}

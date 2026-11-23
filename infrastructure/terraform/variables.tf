@@ -153,8 +153,9 @@ variable "s3_lifecycle_expiration_days" {
 # -----------------------------------------------------------------------------
 
 variable "alert_email" {
-  description = "Email address for SNS alert notifications"
+  description = "Email address for SNS alert notifications (empty = no email subscription)"
   type        = string
+  default     = ""
 }
 
 variable "cloudwatch_log_retention_days" {

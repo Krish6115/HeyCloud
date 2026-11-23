@@ -1,12 +1,21 @@
 # =============================================================================
 # HeyCloud Infrastructure Deployment
-# Runs on: Push to main when infrastructure/ files change
+# Runs on: push to release/* touching infrastructure/, or manual dispatch
+# Order is safe for a fresh account: the Lambda zips are uploaded to the
+# artifacts bucket before the Lambda functions are created.
+# Required secret: AWS_ROLE_ARN (see scripts/bootstrap-github-oidc.sh)
 # =============================================================================
 
 name: Deploy Infrastructure
 
 on:
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        type: choice
+        options: [dev, prod]
+        default: dev
   push:
     branches: [release/*]
     paths:
@@ -14,21 +23,35 @@ on:
 
 env:
   TERRAFORM_VERSION: "1.5.7"
+  PYTHON_VERSION: "3.12"
   AWS_REGION: us-east-1
+  TF_ENV: ${{ inputs.environment || 'dev' }}
 
 permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: deploy-${{ inputs.environment || 'dev' }}
+  cancel-in-progress: false
+
 jobs:
   deploy:
     name: Terraform Apply
     runs-on: ubuntu-latest
-    environment: production
+    environment: ${{ inputs.environment || 'dev' }}
+    defaults:
+      run:
+        working-directory: infrastructure/terraform
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -40,15 +63,24 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
       - name: Terraform Init
-        run: terraform init
-        working-directory: infrastructure/terraform
+        run: terraform init -input=false
+
+      - name: Create storage layer (artifacts bucket)
+        run: terraform apply -input=false -auto-approve -var-file="../environments/${TF_ENV}.tfvars" -target=module.s3
+
+      - name: Package and upload Lambda artifacts
+        run: python ../../scripts/package-lambdas.py --upload "$(terraform output -raw s3_lambda_artifacts_bucket)"
 
       - name: Terraform Plan
-        run: terraform plan -var-file="../environments/dev.tfvars" -out=tfplan
-        working-directory: infrastructure/terraform
+        run: terraform plan -input=false -var-file="../environments/${TF_ENV}.tfvars" -out=tfplan
 
       - name: Terraform Apply
-        run: terraform apply -auto-approve tfplan
-        working-directory: infrastructure/terraform
+        run: terraform apply -input=false -auto-approve tfplan
+
+      - name: Summary
+        run: |
+          echo "### Deployed ${TF_ENV}" >> "$GITHUB_STEP_SUMMARY"
+          echo "API URL: $(terraform output -raw api_gateway_url)" >> "$GITHUB_STEP_SUMMARY"
